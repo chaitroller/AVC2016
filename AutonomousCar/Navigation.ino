@@ -11,9 +11,6 @@ void GoStraight(int feet, int velocity)
   // Throttle for = 25 Count is ~ 2500 mSec
   steering.write(STRAIGHT);
   delay(500);
-
-   
-
 }
 
 //============================================================================================
@@ -24,11 +21,11 @@ void TurnLeft()
   delay(DELAYAFTERLEFT);
 }
 //============================================================================================
-void StartupAndAlign()
+void SetSteeringGoStraight()
 {
   // Set the steering to go straight
   steering.write(STRAIGHT);
-  delay(STARTUP_DELAY_MS);
+  delay(STEERING_DELAY_MS);
 }
 void TurnEngineOff()
 {
@@ -57,7 +54,7 @@ void NavigationRecheck(int leg)
 {
 }
 
-float GetHeading(Adafruit_LSM9DS0 lsm ) {
+float GetDirection(Adafruit_LSM9DS0 lsm ) {
 
   lsm.read();
   float heading = atan2((int)lsm.magData.y, (int)lsm.magData.x);
@@ -76,13 +73,9 @@ float GetHeading(Adafruit_LSM9DS0 lsm ) {
   // Convert radians to degrees for readability.
   return heading * 180 / M_PI;
 
-
-
 }
 
 void CourseCorrection( int minAngle, int maxAngle, int currentAngle) {
- 
-
 
   minAngle = currentAngle - driftAngle;
   maxAngle = currentAngle + driftAngle;
@@ -91,20 +84,13 @@ void CourseCorrection( int minAngle, int maxAngle, int currentAngle) {
   Serial.print("minAngle: "); Serial.print(minAngle); Serial.print("  ");
   Serial.print("maxAngle: "); Serial.print(maxAngle); Serial.println("  ");
 
-
-  // if (drift > 5 && drift < 50) { //drifting to the left
   if (currentAngle < minAngle) {
     //turn right
     TurnRight();
   } else if (currentAngle > maxAngle) {
-    //else if (drift < -5 && drift > -50) { //drifiting to the right
     //turn left
     TurnLeft();
-    
   }
-
-
-
 
 }
 

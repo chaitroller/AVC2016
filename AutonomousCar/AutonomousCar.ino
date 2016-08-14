@@ -5,20 +5,21 @@
   matt.chandlerAZ@gmail.com "Matt"
 
  */
+
 #include <Servo.h>
 #include "constants.h"
+#include "utils.h"
 
 #include <Servo.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_LSM9DS0.h>
 #include <Adafruit_Sensor.h>
+#include <RobotGeekLCD.h>
 
-Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
 
-
-#define DEBUG = true
-#define SIMULATIONMODE = false
+#define DEBUG_MODE 1
+#define SIMULATION_MODE 0
 //Steering
 #define LEFT 70
 #define STRAIGHT 95
@@ -28,10 +29,10 @@ Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
 #define FORWARD_MAX 2000
 #define REVERSE_MAX 1000
 
+Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
+unsigned long time;
 Servo steering;
 Servo drive;
-
-
 
 int current_speed = 0;
 
@@ -78,64 +79,95 @@ int maxAngle = 0;
 int driftAngle = 5;
 int currentAngle = 0;
 
+const byte interruptPin = 2;
+RobotGeekLCD lcd;
+
+ESC_Throttle servoSteering(15);    // 15 mSec delay  between throttle pulses
+ESC_Throttle servoDrive(10);       // 10 miSec delay between throttle pulses
+
+
 void setup()
 {
-
-#ifndef ESP8266
-  while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
-#endif
   Serial.begin(9600);
-  Serial.println("LSM raw read demo");
 
-  // Try to initialise and warn if we couldn't detect the chip
-  if (!lsm.begin())
-  {
-    Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
-    while (1);
-  }
-  Serial.println("Found LSM9DS0 9DOF");
-  Serial.println("");
-  Serial.println("");
 
-  //Start ESC
-  drive.writeMicroseconds(0);
-  delay(1000);
-  drive.writeMicroseconds(NEUTRAL);
-  delay(500);
-  //Setup Serial Sync
-  //  link.setup();
+  pinMode(interruptPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
+  /*
+  #ifndef ESP8266
+   while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
+  #endif
+   Serial.println("LSM raw read demo");
 
-  //Setup Steering
-  steering.attach(13);
+   // Try to initialise and warn if we couldn't detect the chip
+   if (!lsm.begin())
+   {
+     Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
+     while (1);
+   }
+   Serial.println("Found LSM9DS0 9DOF");
+   Serial.println("");
+   Serial.println("");
+  */
+  // Attach PWM Pins to steering and drive
+  ////////////////////////////////////////
 
-  //Setup Drive
-  drive.attach(12);
+  //steering.attach(13);    //Setup Steering
+  //drive.attach(12);       //Setup Drive
+
+  servoDrive.Attach(12);
+  servoSteering.Attach(13);
+
+  // Initialize the Throttle
+  //////////////////////////
   current_speed = NEUTRAL;
+  //Start Electronic Speed Controller (ESC): The delay is required for Throttle
+  drive.writeMicroseconds(0);                  //  ??? Why zero
+  delay(1000);
+  drive.writeMicroseconds(NEUTRAL);            //
+  delay(500);                                  // Delay
+  /*
+    int myAngle = -99;
+    lsm.read();
+    delay(600);
+  */
+  // initlaize the lcd object - this sets up all the variables and IIC setup for the LCD object to work
+  lcd.init();
+  // Print a message to the LCD.
+  lcd.print("Hello, World!");
+
+}
+
+// Note: Following loop is temporary code used to implement and debug the distance calculation using RPM Sensor
+// the parameter passed to GoForward() should be replaced with the LEG
+void loop() {
+
+  servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
 
 
-int myAngle = -99;
+  // LCD displays the distance or RPM for debugging purpose: TBD : Add LCD Class
+  // set the cursor to column 0, line 1
+  // (note: line 1 is the second row, since counting begins with 0):
+  lcd.setCursor(0, 1);
+  lcd.print(rotation);
+  //timeDelay(5);
+}
 
-int firsttime = 1;
-
-if (firsttime == 1) {
-  firsttime = 0;
-  lsm.read();
-  delay(600);
+// ISR : Intrrupt Service Routine, Sensor output is connected to interrupt pin 2
+void rpm() {
+  rotation++;
+  distance_travelled = rotation*ROTATION_MULTIPLIER;
   
 }
-}
-
 
 //============================================================================================
 //==============================  MAIN WORKING LOOP ==========================================
 //============================================================================================
-void loop()
+void loop1()
 {
-  StartupAndAlign();
+  SetSteeringGoStraight();
 
-  StartupThrottleEngine(STARTUP_DELAY_MS,STARTUP_DELAY_MS);
-
-
+  StartupThrottleEngine(STARTUP_SPEED, STARTUP_DELAY_MS);
 
   /* DESIGN:  For each leg of course:
    *    - Go the direction and speed indicated
@@ -148,24 +180,11 @@ void loop()
    *
    */
 
-  current_speed = 1650;
-
-
-  StartupThrottleEngine(STARTUP_SPEED, STARTUP_DELAY_MS);
-
-  //Read magnetometer
-
-
   for (int i = 0; i < 3; i++)
   {
-
-    currentAngle = GetHeading( lsm );
+    currentAngle = GetDirection( lsm );      //Read magnetometer
     CourseCorrection(  minAngle,  maxAngle,  currentAngle);
     GoStraight(MapDistance[i], MapSpeed[i]);
-
-
-
-
 
     switch (MapTurnsAtEndOfLeg[i])
     {

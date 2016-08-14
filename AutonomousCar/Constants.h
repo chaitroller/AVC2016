@@ -29,6 +29,10 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
    * 
    */
+   
+// Rotation to distance Calculations
+#define ROTATION_MULTIPLIER 0.22      // Muliplying # of rotation gives distance in Inches
+   
 //GPIO Assignments
 
 #define PINDRIVE 12
@@ -37,8 +41,11 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 // To go X feet, trigger driver for Y time
 #define DISTANCE_TO_TIME_RATIO  5
 
+#define STEERING_DELAY_MS       100
+#define THROTTLE_DELAY_MS       100
+
 #define STARTUP_DELAY_MS        500
-#define STARTUP_SPEED           1650
+#define STARTUP_SPEED           1700
 #define DRIFTANGLE              5
 #define NEUTRAL                 1500
 #define FORWARD_MAX             2000
