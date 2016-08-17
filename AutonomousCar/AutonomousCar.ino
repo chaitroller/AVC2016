@@ -82,8 +82,9 @@ int currentAngle = 0;
 const byte interruptPin = 2;
 RobotGeekLCD lcd;
 
-ESC_Throttle servoSteering(15);    // 15 mSec delay  between throttle pulses
-ESC_Throttle servoDrive(10);       // 10 miSec delay between throttle pulses
+// Create Two objects, Drive and Steering
+ESC_Throttle servoSteering;    // 15 mSec delay  between throttle pulses
+ESC_Throttle servoDrive;       // 10 miSec delay between throttle pulses
 
 
 void setup()
@@ -141,9 +142,54 @@ void setup()
 // Note: Following loop is temporary code used to implement and debug the distance calculation using RPM Sensor
 // the parameter passed to GoForward() should be replaced with the LEG
 void loop() {
+  //Serial.println(LEG_NO);
+  //servoDrive.takeTurn(150);
 
-  servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
 
+
+  switch (LEG_NO) {
+
+    case 0:
+      servoDrive.GoForward(20);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      //servoSteering.takeTurn(130);
+      Serial.print("LEG # : "); Serial.print(" ");
+      Serial.println(LEG_NO);
+      break;
+
+    case 1:
+      //Serial.println("Case 1 : ");
+      //servoDrive.updateSpeed(1600);
+      servoDrive.GoForward(40);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      servoSteering.takeTurn(70);
+      servoSteering.takeTurn(95);
+      Serial.print("LEG # : "); Serial.print(" ");
+      Serial.println(LEG_NO);
+      break;
+
+    case 2:
+      //servoDrive.updateSpeed(1600);
+     servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      servoSteering.takeTurn(130);
+      Serial.print("LEG # : "); Serial.print(" ");
+      Serial.println(LEG_NO);
+      break;
+
+    case 3:
+      //servoDrive.updateSpeed(1600);
+      servoDrive.GoForward(80);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      servoSteering.takeTurn(70);
+      servoSteering.takeTurn(95);
+      Serial.print("LEG # : "); Serial.print(" ");
+      Serial.println(LEG_NO);
+
+      break;
+
+    default:
+      servoDrive.updateSpeed(1500);
+      servoDrive.GoForward(1);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+
+      Serial.println("======================= DONE ++++++++++++++++++++");
+  }
 
   // LCD displays the distance or RPM for debugging purpose: TBD : Add LCD Class
   // set the cursor to column 0, line 1
@@ -156,8 +202,8 @@ void loop() {
 // ISR : Intrrupt Service Routine, Sensor output is connected to interrupt pin 2
 void rpm() {
   rotation++;
-  distance_travelled = rotation*ROTATION_MULTIPLIER;
-  
+  distance_travelled = rotation * ROTATION_MULTIPLIER;
+
 }
 
 //============================================================================================

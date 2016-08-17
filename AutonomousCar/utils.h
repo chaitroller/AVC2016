@@ -6,9 +6,11 @@
 #include <Arduino.h>
 #include <Servo.h>
 
+
+
 int rotation = 0;
 int distance_travelled = 0;
-
+int LEG_NO = 0;
 class ESC_Throttle
 {
     Servo servo;              // the servo
@@ -20,9 +22,9 @@ class ESC_Throttle
     //int Distance;
 
   public:
-    ESC_Throttle(int interval)
+    ESC_Throttle()
     {
-      updateInterval = interval;
+      updateInterval = 15;
       increment = 1;
       startSpeed = 1700;
       //Distance = 60;
@@ -31,6 +33,11 @@ class ESC_Throttle
     void Attach(int pin)
     {
       servo.attach(pin);
+    }
+
+    void updateSpeed(int newSpeed)
+    {
+      startSpeed = newSpeed;
     }
 
     void Detach()
@@ -44,14 +51,38 @@ class ESC_Throttle
       {
         lastUpdate = millis();
         servo.writeMicroseconds(startSpeed);
-        Serial.print(distance_travelled); Serial.print(" ");
-        Serial.println(Distance);
-        if(distance_travelled > Distance)
+        //Serial.print(distance_travelled); Serial.print(" ");
+        //Serial.println(Distance);
+        if (distance_travelled > Distance)
         {
           Serial.println("DONE");
-          startSpeed = 1500;        // STOP         
+          if (LEG_NO++ > 3)
+            startSpeed = 1500;        // STOP
+
+          //Serial.print("LEG # : "); Serial.print(" ");
+          //Serial.println(LEG_NO);
+          distance_travelled = 0;
+          //lastUpdate = 0;
+          //servoSteering = ESC_Throttle();
+
         }
       }
     }
+
+
+    void takeTurn(int servoAngle)
+    {
+      if ((millis() - lastUpdate) > updateInterval) // time to update
+      {
+        lastUpdate = millis();
+        //pos += increment;
+        servo.write(servoAngle);
+      } else {
+        //servo.write(95);
+        
+      }
+    }
+
+
 };
 
