@@ -45,31 +45,30 @@ class ESC_Throttle
       servo.detach();
     }
 
+///////////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////
     void GoForward(int Distance)
     {
       if ((millis() - lastUpdate) > updateInterval) // time to update
       {
         lastUpdate = millis();
         servo.writeMicroseconds(startSpeed);
-        //Serial.print(distance_travelled); Serial.print(" ");
-        //Serial.println(Distance);
         if (distance_travelled > Distance)
         {
           Serial.println("DONE");
           if (LEG_NO++ > 3)
             startSpeed = 1500;        // STOP
-
-          //Serial.print("LEG # : "); Serial.print(" ");
-          //Serial.println(LEG_NO);
           distance_travelled = 0;
-          //lastUpdate = 0;
-          //servoSteering = ESC_Throttle();
-
         }
       }
     }
 
-
+//////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////
     void takeTurn(int servoAngle)
     {
       if ((millis() - lastUpdate) > updateInterval) // time to update

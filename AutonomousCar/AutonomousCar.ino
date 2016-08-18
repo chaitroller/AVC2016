@@ -1,10 +1,10 @@
 /* Autonomous Car Code
- *
- *  This code was written for the Sparkfun AVC competition
+
+    This code was written for the Sparkfun AVC competition
   Chaitanya.Sanghadia@gmail.com "Chai"
   matt.chandlerAZ@gmail.com "Matt"
 
- */
+*/
 
 #include <Servo.h>
 #include "constants.h"
@@ -90,25 +90,24 @@ ESC_Throttle servoDrive;       // 10 miSec delay between throttle pulses
 void setup()
 {
   Serial.begin(9600);
-
-
+  // Interrupt at Falling Edge to read the RPM Sensor
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
   /*
-  #ifndef ESP8266
-   while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
-  #endif
-   Serial.println("LSM raw read demo");
+    #ifndef ESP8266
+    while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
+    #endif
+    Serial.println("LSM raw read demo");
 
-   // Try to initialise and warn if we couldn't detect the chip
-   if (!lsm.begin())
-   {
+    // Try to initialise and warn if we couldn't detect the chip
+    if (!lsm.begin())
+    {
      Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
      while (1);
-   }
-   Serial.println("Found LSM9DS0 9DOF");
-   Serial.println("");
-   Serial.println("");
+    }
+    Serial.println("Found LSM9DS0 9DOF");
+    Serial.println("");
+    Serial.println("");
   */
   // Attach PWM Pins to steering and drive
   ////////////////////////////////////////
@@ -136,16 +135,40 @@ void setup()
   lcd.init();
   // Print a message to the LCD.
   lcd.print("Hello, World!");
-
 }
+
+
+// QUESTION#1: Do I have to write to servo every 15 mSec if there is no change in the speed/duty-cycle?
+//             following test writes to servo only once, with the start speed of 1700 the motor should
+//             not stop, it should run as long as the power is ON.
+//== == == == == == ==
+bool flag1 = true;
+void loop() {
+
+  if (flag1) {
+    servoDrive.GoForward(40);
+    flag1 = false;
+    Serial.println("Inside");
+  }
+}
+
+// Try writing to the motor 1000 times; after that do nothing. I want to test if the motor continuous to run
+
+int loopcount = 0;
+void loop_test2() {
+
+  if (loopcount++ < 1000) {
+    servoDrive.GoForward(40);
+  }
+}
+
+
 
 // Note: Following loop is temporary code used to implement and debug the distance calculation using RPM Sensor
 // the parameter passed to GoForward() should be replaced with the LEG
-void loop() {
+void loop2() {
   //Serial.println(LEG_NO);
   //servoDrive.takeTurn(150);
-
-
 
   switch (LEG_NO) {
 
@@ -168,7 +191,7 @@ void loop() {
 
     case 2:
       //servoDrive.updateSpeed(1600);
-     servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
       servoSteering.takeTurn(130);
       Serial.print("LEG # : "); Serial.print(" ");
       Serial.println(LEG_NO);
@@ -216,15 +239,15 @@ void loop1()
   StartupThrottleEngine(STARTUP_SPEED, STARTUP_DELAY_MS);
 
   /* DESIGN:  For each leg of course:
-   *    - Go the direction and speed indicated
-   *    - Take a turn and continue to next iteration
-   *    ---> IF LEG HAS OBSTACLES, RAMP, HOOP, ETC ...
-   *    [
-   *       -- SLOW TO STOP, SCAN, REMAP and CONTINUE
-   *
-   *    ]
-   *
-   */
+        - Go the direction and speed indicated
+        - Take a turn and continue to next iteration
+        ---> IF LEG HAS OBSTACLES, RAMP, HOOP, ETC ...
+        [
+           -- SLOW TO STOP, SCAN, REMAP and CONTINUE
+
+        ]
+
+  */
 
   for (int i = 0; i < 3; i++)
   {
