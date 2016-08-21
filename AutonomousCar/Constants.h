@@ -48,7 +48,7 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 #define RIGHT_MAX_ANGLE         150
 #define STARTUP_DELAY_MS        500
 #define STARTUP_SPEED           1700
-#define DRIFTANGLE              5
+#define DRIFTANGLE              10
 #define NEUTRAL                 1500
 #define FORWARD_MAX             2000
 #define REVERSE_MAX             1000
@@ -75,7 +75,7 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Distance to go after each turn
 
-#define LEG1 40 //120
+#define LEG1 20 //120
 #define LEG2 20 //45
 #define LEG3 40 //58
 #define LEG4 20 //53

@@ -57,18 +57,18 @@ void setupCompass()
 
 // Take turn based on dir, 1 = RIGHT and 0 = LEFT, these 0/1 can be #defined
 // Adding gradual change of 10 degree; which can be #defined
-void slowTurn(int destAngle, int nowAngle, int dir)
+void slowTurn(int dir)
 {
 
   int l_steerAngle = servoSteering.readAngle();    // Get Current Angle of steering servo
   int l_rightAngle = l_steerAngle + 10;
   int l_leftAngle = l_steerAngle - 10;
 
-  if ( (dir == 1) && (l_rightAngle < RIGHT_MAX_ANGLE) ) {
+  if ( (dir == RIGHT) && (l_rightAngle < RIGHT_MAX_ANGLE) ) {
 
     servoSteering.setAngle(l_rightAngle);        // Turn RIGHT
 
-  } else if ( (dir == 0) &&  (l_leftAngle > LEFT_MIN_ANGLE) ) {
+  } else if ( (dir == LEFT) &&  (l_leftAngle > LEFT_MIN_ANGLE) ) {
 
     servoSteering.setAngle(l_leftAngle);        // Turn RIGHT
 
@@ -76,6 +76,23 @@ void slowTurn(int destAngle, int nowAngle, int dir)
 
 }
 
+int getUpperThresholdAngle(int l_startAngle, int l_percentageThreshold) 
+{
+  int l_upperThresholdAngle = l_startAngle + 10; //*1.1; // + l_startAngle*1.1; //l_percentageThreshold/100;
+  if(l_upperThresholdAngle > 360)
+    l_upperThresholdAngle -= 360;    
+    
+  return l_upperThresholdAngle;
+}
+
+int getLowerThresholdAngle(int l_startAngle, int l_percentageThreshold) 
+{
+  int l_lowerThresholdAngle = l_startAngle - 10; // *0.9; // - l_startAngle*0.9; //l_percentageThreshold/100;
+  if(l_lowerThresholdAngle < 0)
+    l_lowerThresholdAngle += 360;  
+  
+  return l_lowerThresholdAngle;  
+}
 
 
 // Course Correction:
@@ -86,12 +103,12 @@ void courseCorrection() {
 
   // Compass Angle:
   // Calculate minAngle
-  g_minAngle = g_startAngle - g_driftAngle;
+  g_minAngle = g_startAngle - DRIFTANGLE;
   if (g_minAngle < 0)
     g_minAngle += 360;
 
   // Caclulate maxAngle
-  g_maxAngle = g_startAngle + g_driftAngle;
+  g_maxAngle = g_startAngle + DRIFTANGLE;
   if (g_maxAngle > 360)
     g_maxAngle -= 360;
 
@@ -129,7 +146,7 @@ int getNewAngle(int currAngle, int turnAngle, int dir)
   if (dir == RIGHT) {        //  Right turn
 
     returnAngle = g_currentAngle + turnAngle;  // Turning clockwise, add angle
-    if (currAngle + turnAngle > 360)         //
+    if (returnAngle > 360)         //
       returnAngle -= 360;                   // Fix for crossing 360 degree
 
   } else if (dir == LEFT) { // Left turn

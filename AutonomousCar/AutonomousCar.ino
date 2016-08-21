@@ -43,7 +43,7 @@ unsigned long time;
 
 int g_minAngle = 0;
 int g_maxAngle = 0;
-int g_driftAngle = 5;
+//int g_driftAngle = 5;
 
 int g_current_speed = 0;
 int g_startAngleUpperThreshold = 0; //startAngle * 0.11; // 10% upper threshold
@@ -59,7 +59,7 @@ int MapDistance[COURSELEGS] = {LEG1, LEG2, LEG3, LEG4, LEG5, LEG6, LEG7, LEG8, L
 
 int MapSpeed[COURSELEGS] = {FASTSPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, SLOWSPEED, SLOWSPEED, SLOWSPEED, FASTSPEED};
 
-char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT }; 
+char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT };
 
 int MapTurnAngleAtEndOfLeg[COURSELEGS] = {45, 90, 45, 90, 45, 90, 45, 90, 45};
 
@@ -102,7 +102,7 @@ void setup()
 
   servoSteering.setAngle(STEER_STRAIGHT);
 
-   // initlaize lcd object - this sets up all the variables and IIC setup for the LCD object to work
+  // initlaize lcd object - this sets up all the variables and IIC setup for the LCD object to work
   lcd.init();
   // Print a message to the LCD.
   lcd.print("Autonomous Car");
@@ -123,13 +123,15 @@ void loop() {
   //Serial.println(currentAngle); Serial.print("  : ");
   if (g_updateStartAngle) {                  // Update only once for a LEG
     g_startAngle = g_currentAngle;
-    g_startAngleUpperThreshold = g_startAngle * 0.11; // 10% upper threshold
-    g_startAngleLowerThreshold = g_startAngle * 0.9; // 10% lower threshold
+
+    g_startAngleUpperThreshold = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
+    g_startAngleLowerThreshold = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
+
     g_updateStartAngle = false;
   }
 
   // Each LEG is defined in a case, taking turn is also a case so that there is no course correction while turning
-  // LIDAR: We can add lidar correction in case statement, hopefully not while taking turn but in case 0 
+  // LIDAR: We can add lidar correction in case statement, hopefully not while taking turn but in case 0
   // Distance is updagetd by an ISR which uses Pin # 2 interrupt
   switch (LEG_NO) {
 
@@ -140,11 +142,11 @@ void loop() {
         Serial.print("Start Angle = "); Serial.print(g_startAngle); Serial.print(" ");
         g_startAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], RIGHT);    // 1 = RIGHT TURN
         Serial.print("New Start Angle = "); Serial.println(g_startAngle);
-        g_startAngleUpperThreshold = g_startAngle * 1.1; // 10% upper threshold
-        g_startAngleLowerThreshold = g_startAngle * 0.9; // 10% lower threshold
+        g_startAngleUpperThreshold = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
+        g_startAngleLowerThreshold = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
         LEG_NO++;
-        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
-        g_distance_travelled = 0;
+        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+        //g_distance_travelled = 0;
       } else {
         //Serial.println("CourseCorret");
         courseCorrection();                // Course correct when the vehicle is going straight
@@ -160,15 +162,24 @@ void loop() {
       if ( (g_currentAngle <= g_startAngleUpperThreshold) && (g_currentAngle >= g_startAngleLowerThreshold) ) {
         servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
         LEG_NO++;
+        lcd.setCursor(11, 1);
+        lcd.print(200);
+
       }
       else {
-        slowTurn(g_startAngle, g_currentAngle, 1);
+        slowTurn(RIGHT);
+        lcd.setCursor(0, 1);
+        lcd.print(100);
+        lcd.setCursor(4, 1);
+        lcd.print(g_currentAngle);
+
+
       }
 
       break;
 
     case 2:
-      LEG_NO = 0;        // Go back to Case 0 to restart the same loop
+      LEG_NO = 10;        // Go back to Case 0 to restart the same loop
       g_distance_travelled = 0;
       Serial.println("-------END-------");
       //return;
@@ -187,7 +198,7 @@ void loop() {
       if (g_distance_travelled == MapDistance[LEG_NO]) {
         newAngle = g_currentAngle + 90;
         LEG_NO++;
-        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
       }
       break;
 
@@ -196,12 +207,12 @@ void loop() {
       if (g_distance_travelled == MapDistance[LEG_NO]) {
         newAngle = g_currentAngle + 90;
         LEG_NO++;
-        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
       }
       break;
 
     default:
-      LEG_NO = 0;
+      //LEG_NO = 0;
       servoDrive.driveMotor(1500);
       //servoDrive.updateSpeed(1500);
       //servoDrive.GoForward(1);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
@@ -212,8 +223,8 @@ void loop() {
   // LCD displays the distance or RPM for debugging purpose: TBD : Add LCD Class
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
-  lcd.setCursor(0, 1);
-  lcd.print(g_currentAngle);
+  //  lcd.setCursor(0, 1);
+  //  lcd.print(g_currentAngle);
   //Serial.println(diffAngle);
 }
 
