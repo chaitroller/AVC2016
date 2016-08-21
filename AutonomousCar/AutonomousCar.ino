@@ -13,28 +13,42 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_LSM9DS0.h>
 #include <Adafruit_Sensor.h>
 #include <RobotGeekLCD.h>
+#include <HMC5883L.h>
 
 
 #define DEBUG_MODE 1
 #define SIMULATION_MODE 0
 //Steering
 #define LEFT 70
-#define STRAIGHT 95
+//#define STRAIGHT 95
 #define RIGHT 110
 //Speeds for motor
 #define NEUTRAL 1500
 #define FORWARD_MAX 2000
 #define REVERSE_MAX 1000
 
-Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
-unsigned long time;
-Servo steering;
-Servo drive;
+// Create Instances:
+HMC5883L compass;
 
-int current_speed = 0;
+const byte interruptPin = 2;
+RobotGeekLCD lcd;
+
+// Create Two objects, Drive and Steering
+ESC_Throttle servoSteering;    // 15 mSec delay  between throttle pulses
+ESC_Throttle servoDrive;       // 10 miSec delay between throttle pulses
+
+unsigned long time;
+
+int g_minAngle = 0;
+int g_maxAngle = 0;
+int g_driftAngle = 5;
+
+int g_current_speed = 0;
+int g_startAngleUpperThreshold = 0; //startAngle * 0.11; // 10% upper threshold
+int g_startAngleLowerThreshold = 0; //startAngle * 0.9; // 10% lower threshold
+bool flag1 = true;
 
 // timeDelay account using milliSec for future use
 //==================================================
@@ -45,46 +59,15 @@ int MapDistance[COURSELEGS] = {LEG1, LEG2, LEG3, LEG4, LEG5, LEG6, LEG7, LEG8, L
 
 int MapSpeed[COURSELEGS] = {FASTSPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, SLOWSPEED, SLOWSPEED, SLOWSPEED, FASTSPEED};
 
-char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT };
+char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT }; 
+
+int MapTurnAngleAtEndOfLeg[COURSELEGS] = {45, 90, 45, 90, 45, 90, 45, 90, 45};
 
 char MapOBSTACLES[COURSELEGS] = {OBSTACLENONE, OBSTACLENONE, OBSTACLEBARREL, OBSTACLEHOOP, OBSTACLERAMP, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE};
 
 bool offCourse = false; // Set separately via serial input, triggers to remap
 
 
-void setupSensor()
-{
-  // 1.) Set the accelerometer range
-  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
-
-  // 2.) Set the magnetometer sensitivity
-  lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
-
-  // 3.) Setup the gyroscope
-  lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
-  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
-  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
-}
-
-
-int minAngle = 0;
-int maxAngle = 0;
-int driftAngle = 5;
-int currentAngle = 0;
-
-const byte interruptPin = 2;
-RobotGeekLCD lcd;
-
-// Create Two objects, Drive and Steering
-ESC_Throttle servoSteering;    // 15 mSec delay  between throttle pulses
-ESC_Throttle servoDrive;       // 10 miSec delay between throttle pulses
 
 
 void setup()
@@ -93,182 +76,150 @@ void setup()
   // Interrupt at Falling Edge to read the RPM Sensor
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
-  /*
-    #ifndef ESP8266
-    while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
-    #endif
-    Serial.println("LSM raw read demo");
 
-    // Try to initialise and warn if we couldn't detect the chip
-    if (!lsm.begin())
-    {
-     Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
-     while (1);
-    }
-    Serial.println("Found LSM9DS0 9DOF");
-    Serial.println("");
-    Serial.println("");
-  */
+  while (!compass.begin())
+  {
+    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
+    delay(500);
+  }
+  setupCompass();
+
   // Attach PWM Pins to steering and drive
   ////////////////////////////////////////
-
-  //steering.attach(13);    //Setup Steering
-  //drive.attach(12);       //Setup Drive
-
-  servoDrive.Attach(12);
-  servoSteering.Attach(13);
+  servoDrive.Attach(PINDRIVE);
+  servoSteering.Attach(PINSTEER);
 
   // Initialize the Throttle
   //////////////////////////
-  current_speed = NEUTRAL;
+  g_current_speed = NEUTRAL;
   //Start Electronic Speed Controller (ESC): The delay is required for Throttle
-  drive.writeMicroseconds(0);                  //  ??? Why zero
+  servoDrive.driveMotor(0);
+  //drive.writeMicroseconds(0);                  //  ??? Why zero
   delay(1000);
-  drive.writeMicroseconds(NEUTRAL);            //
-  delay(500);                                  // Delay
-  /*
-    int myAngle = -99;
-    lsm.read();
-    delay(600);
-  */
-  // initlaize the lcd object - this sets up all the variables and IIC setup for the LCD object to work
+  servoDrive.driveMotor(NEUTRAL);
+  //drive.writeMicroseconds(NEUTRAL);            //
+  delay(500);
+
+  servoSteering.setAngle(STEER_STRAIGHT);
+
+   // initlaize lcd object - this sets up all the variables and IIC setup for the LCD object to work
   lcd.init();
   // Print a message to the LCD.
-  lcd.print("Hello, World!");
+  lcd.print("Autonomous Car");
 }
 
 
-// QUESTION#1: Do I have to write to servo every 15 mSec if there is no change in the speed/duty-cycle?
-//             following test writes to servo only once, with the start speed of 1700 the motor should
-//             not stop, it should run as long as the power is ON.
-//== == == == == == ==
-bool flag1 = true;
 void loop() {
 
   if (flag1) {
-    servoDrive.GoForward(40);
+    //servoDrive.GoForward(40);
+    servoDrive.driveMotor(1700);        // Set the speed once, the motor will keep running at this speed
     flag1 = false;
-    Serial.println("Inside");
+    //Serial.println("Inside");
   }
-}
 
-// Try writing to the motor 1000 times; after that do nothing. I want to test if the motor continuous to run
-
-int loopcount = 0;
-void loop_test2() {
-
-  if (loopcount++ < 1000) {
-    servoDrive.GoForward(40);
-  }
-}
-
-
-
-// Note: Following loop is temporary code used to implement and debug the distance calculation using RPM Sensor
-// the parameter passed to GoForward() should be replaced with the LEG
-void loop2() {
   //Serial.println(LEG_NO);
-  //servoDrive.takeTurn(150);
+  g_currentAngle = readDirection( compass );      //Read magnetometer
+  //Serial.println(currentAngle); Serial.print("  : ");
+  if (g_updateStartAngle) {                  // Update only once for a LEG
+    g_startAngle = g_currentAngle;
+    g_startAngleUpperThreshold = g_startAngle * 0.11; // 10% upper threshold
+    g_startAngleLowerThreshold = g_startAngle * 0.9; // 10% lower threshold
+    g_updateStartAngle = false;
+  }
 
+  // Each LEG is defined in a case, taking turn is also a case so that there is no course correction while turning
+  // LIDAR: We can add lidar correction in case statement, hopefully not while taking turn but in case 0 
+  // Distance is updagetd by an ISR which uses Pin # 2 interrupt
   switch (LEG_NO) {
 
-    case 0:
-      servoDrive.GoForward(20);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-      //servoSteering.takeTurn(130);
-      Serial.print("LEG # : "); Serial.print(" ");
-      Serial.println(LEG_NO);
+    case 0:                                            // LEG 1
+      //distance_travelled += 0.01;
+      Serial.println(g_distance_travelled);
+      if (g_distance_travelled > MapDistance[LEG_NO]) {
+        Serial.print("Start Angle = "); Serial.print(g_startAngle); Serial.print(" ");
+        g_startAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], RIGHT);    // 1 = RIGHT TURN
+        Serial.print("New Start Angle = "); Serial.println(g_startAngle);
+        g_startAngleUpperThreshold = g_startAngle * 1.1; // 10% upper threshold
+        g_startAngleLowerThreshold = g_startAngle * 0.9; // 10% lower threshold
+        LEG_NO++;
+        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+        g_distance_travelled = 0;
+      } else {
+        //Serial.println("CourseCorret");
+        courseCorrection();                // Course correct when the vehicle is going straight
+      }
+
       break;
 
-    case 1:
-      //Serial.println("Case 1 : ");
-      //servoDrive.updateSpeed(1600);
-      servoDrive.GoForward(40);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-      servoSteering.takeTurn(70);
-      servoSteering.takeTurn(95);
-      Serial.print("LEG # : "); Serial.print(" ");
-      Serial.println(LEG_NO);
+    case 1:                                          // Take Turn
+      Serial.print("Current Angle = "); Serial.print(g_currentAngle); Serial.print(" ");
+      Serial.print("Upper Threshold = "); Serial.print(g_startAngleUpperThreshold); Serial.print(" ");
+      Serial.print("Lower Threshold = "); Serial.println(g_startAngleLowerThreshold);
+
+      if ( (g_currentAngle <= g_startAngleUpperThreshold) && (g_currentAngle >= g_startAngleLowerThreshold) ) {
+        servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
+        LEG_NO++;
+      }
+      else {
+        slowTurn(g_startAngle, g_currentAngle, 1);
+      }
+
       break;
 
     case 2:
-      //servoDrive.updateSpeed(1600);
-      servoDrive.GoForward(60);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-      servoSteering.takeTurn(130);
-      Serial.print("LEG # : "); Serial.print(" ");
-      Serial.println(LEG_NO);
+      LEG_NO = 0;        // Go back to Case 0 to restart the same loop
+      g_distance_travelled = 0;
+      Serial.println("-------END-------");
+      //return;
+      //servoDrive.timeDelay(5000);
+      //servoDrive.driveMotor(1700);
+      //      if (distance_travelled == MapDistance[LEG_NO]) {
+      //        newAngle = currentAngle + 90;
+      //        LEG_NO++;
+      //        lcd.setCursor(0, 1); lcd.print(distance_travelled);
+      //      }
       break;
 
     case 3:
-      //servoDrive.updateSpeed(1600);
-      servoDrive.GoForward(80);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-      servoSteering.takeTurn(70);
-      servoSteering.takeTurn(95);
-      Serial.print("LEG # : "); Serial.print(" ");
-      Serial.println(LEG_NO);
+      // servoDrive.timeDelay(5000);
+      //servoDrive.driveMotor(1650);
+      if (g_distance_travelled == MapDistance[LEG_NO]) {
+        newAngle = g_currentAngle + 90;
+        LEG_NO++;
+        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+      }
+      break;
 
+    case 4:
+      //servoDrive.driveMotor(1700);
+      if (g_distance_travelled == MapDistance[LEG_NO]) {
+        newAngle = g_currentAngle + 90;
+        LEG_NO++;
+        lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
+      }
       break;
 
     default:
-      servoDrive.updateSpeed(1500);
-      servoDrive.GoForward(1);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-
-      Serial.println("======================= DONE ++++++++++++++++++++");
+      LEG_NO = 0;
+      servoDrive.driveMotor(1500);
+      //servoDrive.updateSpeed(1500);
+      //servoDrive.GoForward(1);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
+      //Serial.println("======================= DONE ++++++++++++++++++++");
+      break;
   }
 
   // LCD displays the distance or RPM for debugging purpose: TBD : Add LCD Class
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
   lcd.setCursor(0, 1);
-  lcd.print(rotation);
-  //timeDelay(5);
+  lcd.print(g_currentAngle);
+  //Serial.println(diffAngle);
 }
 
 // ISR : Intrrupt Service Routine, Sensor output is connected to interrupt pin 2
 void rpm() {
-  rotation++;
-  distance_travelled = rotation * ROTATION_MULTIPLIER;
-
-}
-
-//============================================================================================
-//==============================  MAIN WORKING LOOP ==========================================
-//============================================================================================
-void loop1()
-{
-  SetSteeringGoStraight();
-
-  StartupThrottleEngine(STARTUP_SPEED, STARTUP_DELAY_MS);
-
-  /* DESIGN:  For each leg of course:
-        - Go the direction and speed indicated
-        - Take a turn and continue to next iteration
-        ---> IF LEG HAS OBSTACLES, RAMP, HOOP, ETC ...
-        [
-           -- SLOW TO STOP, SCAN, REMAP and CONTINUE
-
-        ]
-
-  */
-
-  for (int i = 0; i < 3; i++)
-  {
-    currentAngle = GetDirection( lsm );      //Read magnetometer
-    CourseCorrection(  minAngle,  maxAngle,  currentAngle);
-    GoStraight(MapDistance[i], MapSpeed[i]);
-
-    switch (MapTurnsAtEndOfLeg[i])
-    {
-      case LEFT:
-        TurnLeft();
-      case RIGHT:
-        TurnRight();
-    }
-
-    NavigationRecheck(i);
-  }
-
-  TurnEngineOff(); // THE END !!
-  exit(1);
-
+  g_distance_travelled = 6 * g_rotation++;          // Based on the experiments on the friction with tile (indoor)
 }
 
 

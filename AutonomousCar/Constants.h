@@ -44,6 +44,8 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 #define STEERING_DELAY_MS       100
 #define THROTTLE_DELAY_MS       100
 
+#define LEFT_MIN_ANGLE          30
+#define RIGHT_MAX_ANGLE         150
 #define STARTUP_DELAY_MS        500
 #define STARTUP_SPEED           1700
 #define DRIFTANGLE              5
@@ -64,7 +66,7 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Servo Defines for Steering
 #define STEER_LEFT      50
-#define STEER_STRAIGHT  90
+#define STEER_STRAIGHT  95
 #define STEER_RIGHT     130
 
 
@@ -73,10 +75,10 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Distance to go after each turn
 
-#define LEG1 120
-#define LEG2 45
-#define LEG3 58
-#define LEG4 53
+#define LEG1 40 //120
+#define LEG2 20 //45
+#define LEG3 40 //58
+#define LEG4 20 //53
 #define LEG5 66
 #define LEG6 8
 #define LEG7 28
