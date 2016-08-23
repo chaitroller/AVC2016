@@ -1,0 +1,52 @@
+Feedback on software design
+
+I understand now why the simple for loop would not work, the timing 
+is too fast, however the checks and increments still need more work 
+and the code is getting messy too fast.  I am here to help.
+
+Real-time Course correction seems to be in good shape!!  This is great news because going straight as best as possible is crucial.
+
+Need to redesign Current loop/leg/reset again.
+-- Having switch for each leg is messy
+-- Having a reset at top of loop may be causing the calibration issue
+-- Basing on distance travelled is not dependable 
+-- LEG_NO++ is incremented at arbitrary places
+
+Suggestions to help manage better:
+
+Think about the problem as if we were driving, we go forward 99% of the 
+time, and only when it is time to do something do we adjust.
+Adjusting always involve taking foot off pedal (decelerate), deciding 
+how much to turn, turning, the resuming.
+
+Instead of coding around if-else's in the main loop, we should map the above logic into a set of external and Time ISRs.  This can most likely be refactored into less ISRs, the concept should be the same though.  Even a timer based ISR is still a method, so we will have scenarios where we call based on timer (lidar/gyro), and also during times of adjustment and turns.
+
+The Mega has 6 external Interrupt pins available!!  We are using 1 for rpm now, so we have plenty left.
+
+MAIN LOOP  will simply set throttle and DRIVE forward for first time, provide logging, and call ISRs logically based on distance travelled set in the ISR_RPM handler (which MUST Never be trusted, think about hitting the gas, closing your eyes and opening again, how close can you really get?)
+
+#1.)  ISR_RPM --> RPM increment -- already done by team Sanghadia!!  let's be sure though to put that 6 in some sort of variable we can adjust as-needed during testing.  This ISR is called on every turn of the wheel and increments distance travelled.  Seems to be working well -- Amazing!
+
+// ISR : Intrrupt Service Routine, Sensor output is connected to interrupt pin 2
+void rpm() {
+  g_distance_travelled = 6 * g_rotation++;          // Based on the experiments on the friction with tile (indoor)
+}
+
+#2.)  ISR_GYRO --> Triggered from main loop logically.  Note that we can't do this based on time because each leg length is different.  As each leg is travelled, we should be checking and course correcting in realtime, but not all the time (not too much,not enough).  This method should be called and ISR timer reset at start of each leg.  Will need to decide if we should just call a method from MAIN based on percentage of leg travelled, or use timer ISR.  Either should work
+
+#3.)  ISR_SYNC_DISTANCE --> Triggered logically when distance travelled SHOULD be getting near the end based on the rpm isr already monitoring that, but we can't be sure.  When it's time to check, go into this routine to run a scan of where we are.  This would involve (as mapped to how we drive in real life), slowing down and looking around.  Putting in an ISR allows us to scan and correct ONLY when we should, and not in alignment with where we thing we should be.  also, doing this prevents hard-coding of things in a huge conditional, something that we will not be able to fix easily once we test out on the real course on the day before OR when we test here in AZ
+#4.) ISR_LIDAR - Similar logic to GYRO.  Once setup right, LIDAR + gyro should keep us on course
+
+Overall, we have to get away from logic in the main loop or it will get messy very soon.  We have to complete a perfect square, and then some sort of dynamic polygon.  Start slow, and test as much as possible.  Even a perfect design on paper will not work the first time when rubber hits the road.  Designing the system to allow quick adjustments now will help speed up this process.
+
+Hope to hear back soon.
+
+Regards,
+
+-matt
+
+
+
+Return to some sort of high level iteration of our master arrays.
+
+
