@@ -55,20 +55,19 @@ void setupCompass()
   compass.setOffset(0, 0);
 }
 
-// Take turn based on dir, 1 = RIGHT and 0 = LEFT, these 0/1 can be #defined
+// Take turn based on dir, TURN_RIGHT = 0 and TURN_LEFT = 1, 
 // Adding gradual change of 10 degree; which can be #defined
 void slowTurn(int dir)
 {
-
   int l_steerAngle = servoSteering.readAngle();    // Get Current Angle of steering servo
   int l_rightAngle = l_steerAngle + 10;
   int l_leftAngle = l_steerAngle - 10;
 
-  if ( (dir == RIGHT) && (l_rightAngle < RIGHT_MAX_ANGLE) ) {
+  if ( (dir == TURN_RIGHT) && (l_rightAngle < RIGHT_MAX_ANGLE) ) {
 
     servoSteering.setAngle(l_rightAngle);        // Turn RIGHT
 
-  } else if ( (dir == LEFT) &&  (l_leftAngle > LEFT_MIN_ANGLE) ) {
+  } else if ( (dir == TURN_LEFT) &&  (l_leftAngle > LEFT_MIN_ANGLE) ) {
 
     servoSteering.setAngle(l_leftAngle);        // Turn RIGHT
 
@@ -143,15 +142,15 @@ int getNewAngle(int currAngle, int turnAngle, int dir)
 {
   int returnAngle = 0;
 
-  if (dir == RIGHT) {        //  Right turn
+  if (dir == TURN_RIGHT) {                  //  Right turn
 
-    returnAngle = g_currentAngle + turnAngle;  // Turning clockwise, add angle
-    if (returnAngle > 360)         //
+    returnAngle = currAngle + turnAngle;    // Turning clockwise, add angle
+    if (returnAngle > 360)                  //
       returnAngle -= 360;                   // Fix for crossing 360 degree
 
-  } else if (dir == LEFT) { // Left turn
+  } else if (dir == TURN_LEFT) {            // Left turn
 
-    returnAngle = g_currentAngle - turnAngle;  // Turning anti-clockwise, subtract angle
+    returnAngle = currAngle - turnAngle;  // Turning anti-clockwise, subtract angle
     if (returnAngle < 0)
       returnAngle += 360;                  // Fix for crossing 360 degrees
   }

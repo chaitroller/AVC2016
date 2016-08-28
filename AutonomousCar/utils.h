@@ -49,7 +49,6 @@ class ESC_Throttle
       servo.detach();
     }
 
-
     void driveMotor(int newSpeed)
     {
       servo.writeMicroseconds(newSpeed);

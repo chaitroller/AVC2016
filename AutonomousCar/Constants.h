@@ -58,10 +58,13 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 #define FASTSPEED               2500
 #define SLOWSPEED               1000
 
+#define TURN_RIGHT  0
+#define TURN_LEFT   1
+
 //enums for Directions
 #define STRAIGHT    1
-#define RIGHT       2
-#define LEFT        3
+#define RIGHT1      5
+#define LEFT1       5
 #define BACKWARDS   4
 
 //Servo Defines for Steering
@@ -75,7 +78,7 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Distance to go after each turn
 
-#define LEG1 20 //120
+#define LEG1 40 //120
 #define LEG2 20 //45
 #define LEG3 40 //58
 #define LEG4 20 //53
