@@ -6,8 +6,6 @@
 
  */
 
-
-
 // Read Direction
 float readDirection( HMC5883L compass) {
 
@@ -55,7 +53,7 @@ void setupCompass()
   compass.setOffset(0, 0);
 }
 
-// Take turn based on dir, TURN_RIGHT = 0 and TURN_LEFT = 1, 
+// Take turn based on dir, TURN_RIGHT = 0 and TURN_LEFT = 1,
 // Adding gradual change of 10 degree; which can be #defined
 void slowTurn(int dir)
 {
@@ -75,65 +73,27 @@ void slowTurn(int dir)
 
 }
 
-int getUpperThresholdAngle(int l_startAngle, int l_percentageThreshold) 
-{
-  int l_upperThresholdAngle = l_startAngle + 10; //*1.1; // + l_startAngle*1.1; //l_percentageThreshold/100;
-  if(l_upperThresholdAngle > 360)
-    l_upperThresholdAngle -= 360;    
-    
-  return l_upperThresholdAngle;
-}
-
-int getLowerThresholdAngle(int l_startAngle, int l_percentageThreshold) 
-{
-  int l_lowerThresholdAngle = l_startAngle - 10; // *0.9; // - l_startAngle*0.9; //l_percentageThreshold/100;
-  if(l_lowerThresholdAngle < 0)
-    l_lowerThresholdAngle += 360;  
-  
-  return l_lowerThresholdAngle;  
-}
-
 
 // Course Correction:
 // Read the Angle using Compass to Change the Angle of Steering Servo
-void courseCorrection() {
+void courseCorrection(int goal) {
 
-  int steerAngle = servoSteering.readAngle();    // Get Current Angle of steering servo
+  int error = goal - g_currentAngle;
 
-  // Compass Angle:
-  // Calculate minAngle
-  g_minAngle = g_startAngle - DRIFTANGLE;
-  if (g_minAngle < 0)
-    g_minAngle += 360;
+  //Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
 
-  // Caclulate maxAngle
-  g_maxAngle = g_startAngle + DRIFTANGLE;
-  if (g_maxAngle > 360)
-    g_maxAngle -= 360;
+  if (error >= 180)
+    error -= 360;         // Drifted too much on RIGHT, Action: Turn LEFT
+  if (error <= -180)
+    error += 360;         // Drifted too much on LEFT, Action: Turn RIGHT
+  // Update servo and keep with range of +/- 60
+  if (error > 60)
+    error = 60;           // RIGHT Turn
+  if (error < -60)
+    error = -60;          // LEFT Turn
 
-  //  Serial.print("SteerAngle = "); Serial.print(steerAngle); Serial.print(" ");
-  //  Serial.print("CurrentAngle = "); Serial.print(currentAngle); Serial.print(" ");
-  //  Serial.print("StartAngle: "); Serial.print(startAngle); Serial.print("  ");
-  //  Serial.print("minAngle: "); Serial.print(minAngle); Serial.print("  ");
-  //  Serial.print("maxAngle: "); Serial.print(maxAngle); Serial.println("  ");
-
-  if ( (g_currentAngle < g_minAngle) && !(steerAngle < LEFT_MIN_ANGLE) && !(steerAngle > RIGHT_MAX_ANGLE) ) {          // Check if the vehicle is drifting on left
-    //    Serial.println("------------ Turn Right");
-    servoSteering.setAngle(steerAngle + 5);    // Steering Servo: turn right
-
-  } else if ( (g_currentAngle > g_maxAngle) && !(steerAngle < LEFT_MIN_ANGLE) && !(steerAngle > RIGHT_MAX_ANGLE) ) {    // Check if the vehicle is drifting on right
-    //    Serial.println("Turn Left ------------ ");
-    servoSteering.setAngle(steerAngle - 5);    // Steering Servo: turn left
-
-  } else if ( (steerAngle < LEFT_MIN_ANGLE) || (steerAngle > RIGHT_MAX_ANGLE) ) {        // Something is wrong, go straight
-
-    servoSteering.setAngle(STEER_STRAIGHT);     // Steering Servo : Set the servo angle to go straight
-
-  } else {
-
-    servoSteering.setAngle(STEER_STRAIGHT);    // Steering Servo : Set the servo angle to go straight
-
-  }
+  servoSteering.setAngle(STEER_STRAIGHT + error);
+  myDelay(10); //delay(10);
 
 }
 
@@ -187,7 +147,35 @@ float readCompass() {
 
   // Convert to degrees
   float headingDegrees = heading * 180 / M_PI;
-  
+
 }
 
+// Use PID to reduce the error to zero
+void takeTurn(int goal)
+{
+  // g_currentAngle = readDirection( compass );      //Read magnetometer
+  int error = goal - g_currentAngle;
 
+  Serial.print("ReadCompass: CurrentANgle Error ServoAngle = ");
+  Serial.print(g_currentAngle); Serial.print(" ");
+  Serial.print(error); Serial.print(" ");
+  Serial.println(servoSteering.readAngle());
+
+  //Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
+
+  if (error >= 180)
+    error -= 360;         // Drifted too much on RIGHT, Action: Turn LEFT
+  if (error <= -180)
+    error += 360;         // Drifted too much on LEFT, Action: Turn RIGHT
+  // Update servo and keep with range of +/- 60
+  if (error > 60)
+    error = 60;           // RIGHT Turn
+  if (error < -60)
+    error = -60;          // LEFT Turn
+  servoSteering.setAngle(95 + error); //(STEER_STRAIGHT); myservo.write(CENTER + error);
+  myDelay(10);           //delay 10 mSec
+
+  if (error < 5)
+    LEG_NO++;
+
+}

@@ -10,7 +10,6 @@
 #include "constants.h"
 #include "utils.h"
 
-#include <Servo.h>
 #include <Wire.h>
 #include <SPI.h>
 //#include <SD.h>
@@ -63,7 +62,7 @@ int MapSpeed[COURSELEGS] = {FASTSPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, CR
 
 //char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT };
 
-int MapTurnAngleAtEndOfLeg[COURSELEGS] = {90, 90, 30, 0, 45, 90, 45, 90, 45};
+int MapTurnAngleAtEndOfLeg[COURSELEGS] = {90, 90, 90, 90, 45, 90, 45, 90, 45};
 
 char MapOBSTACLES[COURSELEGS] = {OBSTACLENONE, OBSTACLENONE, OBSTACLEBARREL, OBSTACLEHOOP, OBSTACLERAMP, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE};
 
@@ -128,7 +127,10 @@ void setup()
   //lcd.init();
   // Print a message to the LCD.
   //lcd.print("Autonomous Car");
+
+  servoDrive.driveMotor(1650);
 }
+
 
 /////////////////////////////////////////////////////////
 //  Main Loop:
@@ -138,20 +140,14 @@ void setup()
 int myCounter = 0;
 void loop() {
 
+  g_currentAngle = readDirection( compass );      //Read magnetometer
+  Serial.print(": CurrentANgle = "); Serial.println(g_currentAngle);
+  Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
+ 
   if (flag1) {
     servoDrive.driveMotor(1650);        // Set the speed once, the motor will keep running at this speed
-    flag1 = false;
-  }
-
-  g_currentAngle = readDirection( compass );      //Read magnetometer
-  Serial.print("ReadCompass: CurrentANgle = "); Serial.println(g_currentAngle);
-  Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
-
-  if (g_updateStartAngle) {                  // Update only once for a LEG
     g_startAngle = g_currentAngle;
-    g_Angle_UT = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
-    g_Angle_LT = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
-    g_updateStartAngle = false;
+    flag1 = false;
   }
 
   // Each LEG is defined in a case, taking turn is also a case so that there is no course correction while turning
@@ -160,54 +156,30 @@ void loop() {
   switch (LEG_NO) {
 
     case 0:                                            // LEG 1
-      if (g_distance_travelled > 50) { //MapDistance[LEG_NO]) {
-        int nAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], TURN_RIGHT);    // 1 = RIGHT TURN
-        g_startAngle = nAngle;
-        g_Angle_UT = getUpperThresholdAngle(g_startAngle, 10); //  upper threshold
-        g_Angle_LT = getLowerThresholdAngle(g_startAngle, 10); //  lower threshold
+      if (g_distance_travelled > MapDistance[LEG_NO]) {
+        g_startAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], TURN_RIGHT);    // 1 = RIGHT TURN
         LEG_NO++;
-        g_distance_travelled = 0;
-        debugPrint_0_ToSerial(nAngle);
-
+        debugPrint_0_ToSerial(g_startAngle);
       } else {
-        Serial.println("case-0-course-correct"); //Serial.print(" ");
-        courseCorrection();                // Course correct when the vehicle is going straight
+        courseCorrection(STEER_STRAIGHT);    // Course correct when the vehicle is going straight
       }
       break;
 
-    case 1:                                                  // Take Turn    
-      debugPrint_1_ToSerial();
-
-      if ( ((g_Angle_UT < g_Angle_LT) && (g_currentAngle > g_Angle_LT)) ||
-           ((g_Angle_UT < g_Angle_LT) && (g_currentAngle < g_Angle_UT)) ) {
-
-        servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
-        Serial.println("=====STEER STRAIGHT=====");
-        LEG_NO++;
-
-      } else if ( (g_Angle_UT > g_Angle_LT) && (g_Angle_LT <= g_currentAngle) &&  (g_currentAngle <= g_Angle_UT) ) {
-
-        servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
-        Serial.println("=====STEER STRAIGHT=====");
-        LEG_NO++;
-
-      } else {
-
-        slowTurn(TURN_RIGHT);        // Turn Right
-
-      }
+    case 1:                                                  // Take Turn
+      takeTurn(g_startAngle);
       break;
 
     case 2:
-      if (myCounter++ < 4) {
+      if (++myCounter < 2) {
+        Serial.print("case 2 : myCounter =  "); Serial.println(myCounter);
         LEG_NO = 0;        // Go back to Case 0 to restart the same loop
         g_distance_travelled = 0;
         g_rotation = 0;
       } else {
         servoDrive.driveMotor(1500);
+        Serial.println("-------END-------");
       }
 
-      Serial.println("-------END-------");
       break;
 
     default:
