@@ -13,9 +13,9 @@
 #include <Servo.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <SD.h>
+//#include <SD.h>
 #include <Adafruit_Sensor.h>
-#include <RobotGeekLCD.h>
+//#include <RobotGeekLCD.h>
 #include <HMC5883L.h>
 
 #define DEBUG_MODE 1
@@ -48,8 +48,8 @@ int g_maxAngle = 0;
 //int g_driftAngle = 5;
 
 int g_current_speed = 0;
-int g_startAngleUpperThreshold = 0; //startAngle * 0.11; // 10% upper threshold
-int g_startAngleLowerThreshold = 0; //startAngle * 0.9; // 10% lower threshold
+int g_Angle_UT = 0; //startAngle * 0.11; // 10% upper threshold
+int g_Angle_LT = 0; //startAngle * 0.9; // 10% lower threshold
 bool flag1 = true;
 
 // timeDelay account using milliSec for future use
@@ -63,36 +63,38 @@ int MapSpeed[COURSELEGS] = {FASTSPEED, CRUISESPEED, CRUISESPEED, CRUISESPEED, CR
 
 //char MapTurnsAtEndOfLeg[COURSELEGS] = {RIGHT, RIGHT, LEFT, RIGHT, RIGHT, LEFT, LEFT, RIGHT, RIGHT };
 
-int MapTurnAngleAtEndOfLeg[COURSELEGS] = {45, 90, 45, 90, 45, 90, 45, 90, 45};
+int MapTurnAngleAtEndOfLeg[COURSELEGS] = {90, 90, 30, 0, 45, 90, 45, 90, 45};
 
 char MapOBSTACLES[COURSELEGS] = {OBSTACLENONE, OBSTACLENONE, OBSTACLEBARREL, OBSTACLEHOOP, OBSTACLERAMP, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE, OBSTACLENONE};
 
 bool offCourse = false; // Set separately via serial input, triggers to remap
 
 unsigned long fileNameTime;
-File dataFile;
+//File dataFile;
 String fileName;
 
 void setup()
 {
   Serial.begin(9600);
 
-  Serial.print("Initializing SD card...");
+  //  Serial.print("Initializing SD card...");
+  //
+  //  // see if the card is present and can be initialized:
+  //  if (!SD.begin(chipSelect)) {
+  //    Serial.println("Card failed, or not present");
+  //    // don't do anything more:
+  //    return;
+  //  }
+  //  Serial.println("card initialized.");
+  //
+  //  fileName = String(millis());
+  //  fileName += ".";
+  //  fileName += "txt";
+  //  dataFile = SD.open(String(fileName), FILE_WRITE);
+  //  dataFile.println("===== Autonomoous Car Debug Messages =====");
+  //  dataFile.close();
 
-  // see if the card is present and can be initialized:
-  if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
-    // don't do anything more:
-    return;
-  }
-  Serial.println("card initialized.");
 
-  fileName = String(millis());
-  fileName += ".";
-  fileName += "txt";
-  dataFile = SD.open(String(fileName), FILE_WRITE);
-  dataFile.println("===== Autonomoous Car Debug Messages =====");
-  dataFile.close();
   // Interrupt at Falling Edge to read the RPM Sensor
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
@@ -137,31 +139,18 @@ int myCounter = 0;
 void loop() {
 
   if (flag1) {
-    servoDrive.driveMotor(1700);        // Set the speed once, the motor will keep running at this speed
+    servoDrive.driveMotor(1650);        // Set the speed once, the motor will keep running at this speed
     flag1 = false;
   }
 
-  //Serial.println(LEG_NO);
   g_currentAngle = readDirection( compass );      //Read magnetometer
-  dataFile = SD.open(String(fileName), FILE_WRITE);
-  dataFile.println(g_currentAngle);
-  dataFile.close();
   Serial.print("ReadCompass: CurrentANgle = "); Serial.println(g_currentAngle);
   Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
-  
+
   if (g_updateStartAngle) {                  // Update only once for a LEG
     g_startAngle = g_currentAngle;
-
-    g_startAngleUpperThreshold = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
-    g_startAngleLowerThreshold = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
-    dataFile = SD.open(String(fileName), FILE_WRITE);
-    if (dataFile) {
-      Serial.println("Start Angle UT LT = ");
-      Serial.print(g_startAngle); Serial.print(" ");
-      Serial.print(g_startAngleUpperThreshold); Serial.print(" ");
-      Serial.println(g_startAngleLowerThreshold);
-    }
-    dataFile.close();
+    g_Angle_UT = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
+    g_Angle_LT = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
     g_updateStartAngle = false;
   }
 
@@ -171,139 +160,61 @@ void loop() {
   switch (LEG_NO) {
 
     case 0:                                            // LEG 1
-      dataFile = SD.open(String(fileName), FILE_WRITE);
-      //distance_travelled += 0.01;
-      
       if (g_distance_travelled > 50) { //MapDistance[LEG_NO]) {
-        //Serial.print("Start Angle = "); Serial.print(g_startAngle); Serial.print(" ");
-        Serial.println();
-        Serial.print("case-0-inside-if()-distance-travelled = "); Serial.println(g_distance_travelled);
         int nAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], TURN_RIGHT);    // 1 = RIGHT TURN
-        Serial.print("case-0-inside-if() startAngle newAngle = "); Serial.print(g_startAngle); Serial.print(" "); Serial.println(nAngle);
         g_startAngle = nAngle;
-        //Serial.print("New Start Angle = "); Serial.println(g_startAngle);
-        g_startAngleUpperThreshold = getUpperThresholdAngle(g_startAngle, 10); //g_startAngle * 1.1; // 10% upper threshold
-        g_startAngleLowerThreshold = getLowerThresholdAngle(g_startAngle, 10); //g_startAngle * 0.9; // 10% lower threshold
+        g_Angle_UT = getUpperThresholdAngle(g_startAngle, 10); //  upper threshold
+        g_Angle_LT = getLowerThresholdAngle(g_startAngle, 10); //  lower threshold
         LEG_NO++;
         g_distance_travelled = 0;
-        Serial.print("case-0-inside-if() StartAngle UT LT =  ");
-        Serial.print(g_startAngle); Serial.print(" ");
-        Serial.print(g_startAngleUpperThreshold); Serial.print(" ");
-        Serial.println(g_startAngleLowerThreshold);
-      
-        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
-        //g_distance_travelled = 0;
+        debugPrint_0_ToSerial(nAngle);
+
       } else {
-        //Serial.println("CourseCorret");
-        Serial.print("case-0-course-correct"); Serial.print(" ");
-        Serial.print("Distance Travelled : "); Serial.println(g_distance_travelled);
+        Serial.println("case-0-course-correct"); //Serial.print(" ");
         courseCorrection();                // Course correct when the vehicle is going straight
       }
-      dataFile.close();
       break;
 
-    case 1:                                          // Take Turn
-      dataFile = SD.open(String(fileName), FILE_WRITE);
-      //Serial.print("Current Angle = "); Serial.print(g_currentAngle); Serial.print(" ");
-      //Serial.print("Upper Threshold = "); Serial.print(g_startAngleUpperThreshold); Serial.print(" ");
-      //Serial.print("Lower Threshold = "); Serial.println(g_startAngleLowerThreshold);
+    case 1:                                                  // Take Turn    
+      debugPrint_1_ToSerial();
 
-      Serial.print("case-1- StartAngle UT LT CurrentAngle ServoAngle =  ");
-      Serial.print(g_startAngle); Serial.print(" ");                        // StartAngle
-      Serial.print(g_startAngleUpperThreshold); Serial.print(" ");          // UpperThresholdAngle
-      Serial.print(g_startAngleLowerThreshold); Serial.print(" ");          // LowerThresholdAngle
-      Serial.print(g_currentAngle); Serial.print(" ");                      // Current Angle
-      Serial.println(servoSteering.readAngle());
+      if ( ((g_Angle_UT < g_Angle_LT) && (g_currentAngle > g_Angle_LT)) ||
+           ((g_Angle_UT < g_Angle_LT) && (g_currentAngle < g_Angle_UT)) ) {
 
-      if ( (g_currentAngle <= g_startAngleUpperThreshold) && (g_currentAngle >= g_startAngleLowerThreshold) ) {
         servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
-        //delay(5);
+        Serial.println("=====STEER STRAIGHT=====");
         LEG_NO++;
 
-        Serial.print("case-1 inside if() StartAngle UT LT ServoAngle(95) =  ");
-        Serial.print(g_startAngle); Serial.print(" ");
-        Serial.print(g_startAngleUpperThreshold); Serial.print(" ");
-        Serial.print(g_startAngleLowerThreshold);
-        Serial.println(servoSteering.readAngle());
+      } else if ( (g_Angle_UT > g_Angle_LT) && (g_Angle_LT <= g_currentAngle) &&  (g_currentAngle <= g_Angle_UT) ) {
 
-        //lcd.setCursor(11, 1);
-        //lcd.print(200);
+        servoSteering.setAngle(STEER_STRAIGHT);                  // Set the servo angle to go straight
+        Serial.println("=====STEER STRAIGHT=====");
+        LEG_NO++;
+
+      } else {
+
+        slowTurn(TURN_RIGHT);        // Turn Right
+
       }
-      else {
-        slowTurn(TURN_RIGHT);
-        Serial.print("case-1-slow-turn LT StartAngle CurrentAngle UT SteeringAngle: "); Serial.println(servoSteering.readAngle());
-        Serial.print(g_startAngleLowerThreshold); Serial.print(" ");          // LowerThresholdAngle
-        Serial.print(g_startAngle); Serial.print(" ");                        // StartAngle
-        Serial.print(g_currentAngle); Serial.print(" ");                      // Current Angle        
-        Serial.print(g_startAngleUpperThreshold); Serial.print(" ");          // UpperThresholdAngle
-        Serial.println(servoSteering.readAngle());
-
-
-
-        //lcd.setCursor(0, 1);
-        //lcd.print(100);
-        //lcd.setCursor(4, 1);
-        //lcd.print(g_currentAngle);
-      }
-      dataFile.close();
       break;
 
     case 2:
       if (myCounter++ < 4) {
         LEG_NO = 0;        // Go back to Case 0 to restart the same loop
         g_distance_travelled = 0;
+        g_rotation = 0;
       } else {
         servoDrive.driveMotor(1500);
-        dataFile.close();
       }
-      dataFile.print("case-2-myCounter = "); dataFile.println(myCounter);
 
       Serial.println("-------END-------");
-      //return;
-      //servoDrive.timeDelay(5000);
-      //servoDrive.driveMotor(1700);
-      //      if (distance_travelled == MapDistance[LEG_NO]) {
-      //        newAngle = currentAngle + 90;
-      //        LEG_NO++;
-      //        lcd.setCursor(0, 1); lcd.print(distance_travelled);
-      //      }
-      break;
-
-    case 3:
-      // servoDrive.timeDelay(5000);
-      //servoDrive.driveMotor(1650);
-      if (g_distance_travelled == MapDistance[LEG_NO]) {
-        newAngle = g_currentAngle + 90;
-        LEG_NO++;
-        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
-      }
-      break;
-
-    case 4:
-      //servoDrive.driveMotor(1700);
-      if (g_distance_travelled == MapDistance[LEG_NO]) {
-        newAngle = g_currentAngle + 90;
-        LEG_NO++;
-        //lcd.setCursor(0, 1); lcd.print(g_distance_travelled);
-      }
       break;
 
     default:
-      //LEG_NO = 0;
-      servoDrive.driveMotor(1500);
-      dataFile.close();
-      //servoDrive.updateSpeed(1500);
-      //servoDrive.GoForward(1);      // TBD: Add parameters 1) Distance (LEG), 2) Speed
-      //Serial.println("======================= DONE ++++++++++++++++++++");
+      servoDrive.driveMotor(1500);    // Stop
       break;
   }
 
-  // LCD displays the distance or RPM for debugging purpose: TBD : Add LCD Class
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-  //  lcd.setCursor(0, 1);
-  //  lcd.print(g_currentAngle);
-  //Serial.println(diffAngle);
 }
 
 // ISR : Intrrupt Service Routine, Sensor output is connected to interrupt pin 2

@@ -55,7 +55,7 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 #define DELAYAFTERLEFT          640
 #define DELAYAFTERRIGHT         640
 #define CRUISESPEED             1750
-#define FASTSPEED               2500
+#define FASTSPEED               2000
 #define SLOWSPEED               1000
 
 #define TURN_RIGHT  0
