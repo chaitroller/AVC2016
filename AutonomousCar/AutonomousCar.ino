@@ -33,6 +33,12 @@ const byte interruptPin = 2;      // For RPM Sensor to measure the distance trav
 
 // Create Instances:
 HMC5883L compass;
+float xv, yv, zv;   
+float calibrated_values[3];
+float scaler;
+boolean scaler_flag = false;
+float normal_vector_length;
+
 
 //RobotGeekLCD lcd;
 
@@ -98,11 +104,12 @@ void setup()
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
 
-  while (!compass.begin())
-  {
-    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
-    delay(500);
-  }
+//  while (!compass.begin())
+//  {
+//    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
+//    delay(500);
+//  }
+  compass = HMC5883L();
   setupCompass();
 
   // Attach PWM Pins to steering and drive
@@ -140,7 +147,7 @@ void setup()
 int myCounter = 0;
 void loop() {
 
-  g_currentAngle = readDirection( compass );      //Read magnetometer
+  g_currentAngle = readCompass( );      //Read magnetometer
   Serial.print(": CurrentANgle = "); Serial.println(g_currentAngle);
   Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
  
