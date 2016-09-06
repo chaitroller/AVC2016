@@ -78,8 +78,8 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Distance to go after each turn
 
-#define LEG1 48 //120
-#define LEG2 48 //45
+#define LEG1 36 //120
+#define LEG2 36 //45
 #define LEG3 48 //58
 #define LEG4 48 //53
 #define LEG5 66

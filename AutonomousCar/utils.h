@@ -9,6 +9,7 @@
 int g_rotation = 0;
 float g_distance_travelled = 0;
 int LEG_NO = 0;
+int MODE = 0; // MODE = 0 = Travel Certain Distance, MODE = 1 = Take Turn 
 int newAngle = 0;
 //int diffAngle = 0;
 int g_currentAngle = 0;

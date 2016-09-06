@@ -14,8 +14,10 @@
 #include <SPI.h>
 //#include <SD.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_LSM9DS0.h>
+
 //#include <RobotGeekLCD.h>
-#include <HMC5883L.h>
+//#include <HMC5883L.h>
 
 #define DEBUG_MODE 1
 #define SIMULATION_MODE 0
@@ -28,23 +30,18 @@
 #define FORWARD_MAX 2000
 #define REVERSE_MAX 1000
 
-const int chipSelect = 4;
 const byte interruptPin = 2;      // For RPM Sensor to measure the distance travelled
 
 // Create Instances:
-HMC5883L compass;
-float xv, yv, zv;   
-float calibrated_values[3];
-float scaler;
-boolean scaler_flag = false;
-float normal_vector_length;
-
+//HMC5883L compass;
+// i2c
+Adafruit_LSM9DS0 lsm = Adafruit_LSM9DS0();
 
 //RobotGeekLCD lcd;
 
 // Create Two objects, Drive and Steering
-ESC_Throttle servoSteering;    // 15 mSec delay  between throttle pulses
-ESC_Throttle servoDrive;       // 10 miSec delay between throttle pulses
+ESC_Throttle servoSteering;    // 
+ESC_Throttle servoDrive;       // 
 
 unsigned long time1;
 
@@ -53,8 +50,6 @@ int g_maxAngle = 0;
 //int g_driftAngle = 5;
 
 int g_current_speed = 0;
-int g_Angle_UT = 0; //startAngle * 0.11; // 10% upper threshold
-int g_Angle_LT = 0; //startAngle * 0.9; // 10% lower threshold
 bool flag1 = true;
 
 // timeDelay account using milliSec for future use
@@ -80,45 +75,33 @@ String fileName;
 
 void setup()
 {
+#ifndef ESP8266
+  while (!Serial);     // will pause Zero, Leonardo, etc until serial console opens
+#endif
   Serial.begin(9600);
-
-  //  Serial.print("Initializing SD card...");
-  //
-  //  // see if the card is present and can be initialized:
-  //  if (!SD.begin(chipSelect)) {
-  //    Serial.println("Card failed, or not present");
-  //    // don't do anything more:
-  //    return;
-  //  }
-  //  Serial.println("card initialized.");
-  //
-  //  fileName = String(millis());
-  //  fileName += ".";
-  //  fileName += "txt";
-  //  dataFile = SD.open(String(fileName), FILE_WRITE);
-  //  dataFile.println("===== Autonomoous Car Debug Messages =====");
-  //  dataFile.close();
-
+  // Try to initialise and warn if we couldn't detect the chip
+  if (!lsm.begin())
+  {
+    Serial.println("Oops ... unable to initialize the LSM9DS0. Check your wiring!");
+    while (1);
+  }
+  Serial.println("=== LSM9DS0 9DOF Initialized");
 
   // Interrupt at Falling Edge to read the RPM Sensor
   pinMode(interruptPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(interruptPin), rpm, FALLING);
 
-//  while (!compass.begin())
-//  {
-//    Serial.println("Could not find a valid HMC5883L sensor, check wiring!");
-//    delay(500);
-//  }
-  compass = HMC5883L();
-  setupCompass();
+  setupCompass();   // Setup LMSDS0
 
   // Attach PWM Pins to steering and drive
   ////////////////////////////////////////
+  Serial.println(" 2. Initialize Servo Motors");
   servoDrive.Attach(PINDRIVE);
   servoSteering.Attach(PINSTEER);
 
   // Initialize the Throttle
   //////////////////////////
+  Serial.println(" 2. Initialize Throttle");
   g_current_speed = NEUTRAL;
   //Start Electronic Speed Controller (ESC): The delay is required for Throttle
   servoDrive.driveMotor(0);
@@ -128,13 +111,8 @@ void setup()
   //drive.writeMicroseconds(NEUTRAL);            //
   delay(500);
 
-  servoSteering.setAngle(95); //(STEER_STRAIGHT);
-
-  // initlaize lcd object - this sets up all the variables and IIC setup for the LCD object to work
-  //lcd.init();
-  // Print a message to the LCD.
-  //lcd.print("Autonomous Car");
-
+  Serial.println(" 3. Set Speed and Steering Angle");
+  servoSteering.setAngle(STEER_STRAIGHT); //(STEER_STRAIGHT);
   servoDrive.driveMotor(1650);
 }
 
@@ -147,8 +125,8 @@ void setup()
 int myCounter = 0;
 void loop() {
 
-  g_currentAngle = readCompass( );      //Read magnetometer
-  Serial.print(": CurrentANgle = "); Serial.println(g_currentAngle);
+  g_currentAngle = readDirection();      //Read magnetometer
+  Serial.print("CurrentAngle = "); Serial.println(g_currentAngle);
   Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
  
   if (flag1) {
@@ -160,26 +138,30 @@ void loop() {
   // Each LEG is defined in a case, taking turn is also a case so that there is no course correction while turning
   // LIDAR: We can add lidar correction in case statement, hopefully not while taking turn but in case 0
   // Distance is updagetd by an ISR which uses Pin # 2 interrupt
-  switch (LEG_NO) {
+  switch (MODE) {
 
     case 0:                                            // LEG 1
       if (g_distance_travelled > MapDistance[LEG_NO]) {
         g_startAngle = getNewAngle(g_startAngle, MapTurnAngleAtEndOfLeg[LEG_NO], TURN_RIGHT);    // 1 = RIGHT TURN
         LEG_NO++;
+        MODE++;
         debugPrint_0_ToSerial(g_startAngle);
       } else {
-        courseCorrection(STEER_STRAIGHT);    // Course correct when the vehicle is going straight
+        setAngle(g_startAngle);    // Course correct when the vehicle is going straight
       }
       break;
 
     case 1:                                                  // Take Turn
-      takeTurn(g_startAngle);
+      if (setAngle(g_startAngle) < 5)     // Returns error between Current Angle and the Goal Angle
+        LEG_NO++;
+        MODE++;
       break;
 
     case 2:
       if (++myCounter < 2) {
         Serial.print("case 2 : myCounter =  "); Serial.println(myCounter);
-        LEG_NO = 0;        // Go back to Case 0 to restart the same loop
+        LEG_NO++;
+        MODE = 0;        // Go back to Case 0 to restart the same loop
         g_distance_travelled = 0;
         g_rotation = 0;
       } else {
