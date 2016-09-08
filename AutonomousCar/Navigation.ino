@@ -13,6 +13,15 @@
 ////////////////////////////////////////////////////////////
 float readDirection() {
 
+  float headingDegrees = 0;
+  
+#ifdef HMC5883
+  t = millis();
+  compass_scalled_reading();
+  compass_heading();
+  headingDegrees = bearing;
+#else
+  
   lsm.read();
   // Calculate heading
   float heading = atan2(lsm.magData.y, lsm.magData.x);
@@ -28,7 +37,9 @@ float readDirection() {
   if (heading > 2 * PI) heading -= 2 * PI;
 
   // Convert to degrees
-  float headingDegrees = heading * 180 / M_PI;
+  headingDegrees = heading * 180 / M_PI;
+#endif  
+  
   return headingDegrees;
 }
 
@@ -36,9 +47,11 @@ float readDirection() {
 // SetupCompass: 
 //
 ///////////////////////////////////////////////
-void setupCompass()
+void setupCompass_LSM9DS0()
 
 {
+#ifndef HMC5883
+  
   // 1.) Set the accelerometer range
   lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
   //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
@@ -56,6 +69,7 @@ void setupCompass()
   lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
   //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
   //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
+#endif
 }
 
 // Calculate New Angle: Do the match when crossing 0 degree
