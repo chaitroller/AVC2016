@@ -13,64 +13,16 @@
 ////////////////////////////////////////////////////////////
 float readDirection() {
 
-  float headingDegrees = 0;
-  
-#ifdef HMC5883
-  t = millis();
-  compass_scalled_reading();
-  compass_heading();
-  headingDegrees = bearing;
-#else
-  
-  lsm.read();
-  // Calculate heading
-  float heading = atan2(lsm.magData.y, lsm.magData.x);
+  sensors_event_t event;
+  bno.getEvent(&event);
 
-  // You can find your declination on: http://magnetic-declination.com/
-  // Formula: (deg + (min / 60.0)) / (180 / M_PI);
-  float declinationAngle = (10.0 + (26.0 / 60.0)) / (180 / M_PI);   // Declination for Phoenix = 10.x Degrees
-  heading += declinationAngle;
-
-  // Correct for heading < 0deg and heading > 360deg
-  if (heading < 0) heading += 2 * PI;
-
-  if (heading > 2 * PI) heading -= 2 * PI;
-
-  // Convert to degrees
-  headingDegrees = heading * 180 / M_PI;
-#endif  
-  
-  return headingDegrees;
+  return event.orientation.x;
 }
 
-///////////////////////////////////////////////
-// SetupCompass: 
+////////////////////////////////////////////////////
+// getNewAngle: For every turn calculate a new Angle
 //
-///////////////////////////////////////////////
-void setupCompass_LSM9DS0()
-
-{
-#ifndef HMC5883
-  
-  // 1.) Set the accelerometer range
-  lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_2G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_4G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_6G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_8G);
-  //lsm.setupAccel(lsm.LSM9DS0_ACCELRANGE_16G);
-  
-  // 2.) Set the magnetometer sensitivity
-  lsm.setupMag(lsm.LSM9DS0_MAGGAIN_2GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_4GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_8GAUSS);
-  //lsm.setupMag(lsm.LSM9DS0_MAGGAIN_12GAUSS);
-
-  // 3.) Setup the gyroscope
-  lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_245DPS);
-  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_500DPS);
-  //lsm.setupGyro(lsm.LSM9DS0_GYROSCALE_2000DPS);
-#endif
-}
+////////////////////////////////////////////////////
 
 // Calculate New Angle: Do the match when crossing 0 degree
 int getNewAngle(int currAngle, int turnAngle, int dir)
@@ -82,8 +34,9 @@ int getNewAngle(int currAngle, int turnAngle, int dir)
     returnAngle = currAngle + turnAngle;    // Turning clockwise, add angle
     if (returnAngle > 360)                  //
       returnAngle -= 360;                   // Fix for crossing 360 degree
-
-  } else if (dir == TURN_LEFT) {            // Left turn
+  } 
+  
+  if (dir == TURN_LEFT) {                  // Left turn
 
     returnAngle = currAngle - turnAngle;  // Turning anti-clockwise, subtract angle
     if (returnAngle < 0)
@@ -94,52 +47,42 @@ int getNewAngle(int currAngle, int turnAngle, int dir)
 
 }
 
-// Course Correction:
-// Read the Angle using Compass to Change the Angle of Steering Servo
-void courseCorrection(int goal) {
-
-  int error = goal - g_currentAngle;
-
-  //Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
-
-  if (error >= 180)
-    error -= 360;         // Drifted too much on RIGHT, Action: Turn LEFT
-  if (error <= -180)
-    error += 360;         // Drifted too much on LEFT, Action: Turn RIGHT
-  // Update servo and keep with range of +/- 60
-  if (error > 60)
-    error = 60;           // RIGHT Turn
-  if (error < -60)
-    error = -60;          // LEFT Turn
-
-  servoSteering.setAngle(STEER_STRAIGHT + error);
-  myDelay(10); //delay(10);
-
-}
-
+///////////////////////////////////////////////////////////////////////////////////
+// setAngle: 
 // Use PID to reduce the error to zero
-int setAngle(int goal)
+// A Proportional–Integral–Derivative controller (PID controller) is a control loop 
+// feedback mechanism (controller) commonly used in industrial control systems. 
+// A PID controller continuously calculates an error value {\displaystyle e(t)} e(t) 
+// as the difference between a desired setpoint and a measured process variable. 
+// The controller attempts to minimize the error over time by adjustment of a control 
+// variable {\displaystyle u(t)} u(t),
+//////////////////////////////////////////////////////////////////////////////////
+
+int setAngle(int currentAngle, int goal)
 {
-  int error = goal - g_currentAngle;
+  int errorAngle = goal - currentAngle;
 
-  Serial.print("ReadCompass: CurrentANgle Error ServoAngle = ");
-  Serial.print(g_currentAngle); Serial.print(" ");
-  Serial.print(error); Serial.print(" ");
-  Serial.println(servoSteering.readAngle());
-
-  //Serial.print("DistanceTravelled = "); Serial.println(g_distance_travelled);
-
-  if (error >= 180)
-    error -= 360;         // Drifted too much on RIGHT, Action: Turn LEFT
-  if (error <= -180)
-    error += 360;         // Drifted too much on LEFT, Action: Turn RIGHT
+  if (errorAngle >= 180)
+    errorAngle -= 360;         // Drifted too much on RIGHT, Action: Turn LEFT
+  if (errorAngle <= -180)
+    errorAngle += 360;         // Drifted too much on LEFT, Action: Turn RIGHT
   // Update servo and keep with range of +/- 60
-  if (error > 60)
-    error = 60;           // RIGHT Turn
-  if (error < -60)
-    error = -60;          // LEFT Turn
-  servoSteering.setAngle(STEER_STRAIGHT + error); //(STEER_STRAIGHT); myservo.write(CENTER + error);
-  myDelay(10);           //delay 10 mSec
+  if (errorAngle > 60)
+    errorAngle = 60;           // RIGHT Turn
+  if (errorAngle < -60)
+    errorAngle = -60;          // LEFT Turn
 
-  return error;
+  Serial.print("CurrentANgle : "); 
+  Serial.print(currentAngle); Serial.print(" ");
+  Serial.print("TargetAngle : ");
+  Serial.print(goal); Serial.print(" ");
+  Serial.print("ErrorAngel : ");
+  Serial.print(errorAngle); Serial.print(" ");
+  Serial.print("DiatanceTraveled = ");
+  Serial.println(g_distance_travelled);
+
+  servoSteering.setAngle(STEER_STRAIGHT + errorAngle);
+  myDelay(10);           //
+
+  return abs(errorAngle);
 }

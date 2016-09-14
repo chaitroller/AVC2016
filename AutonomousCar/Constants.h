@@ -41,31 +41,8 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 // To go X feet, trigger driver for Y time
 #define DISTANCE_TO_TIME_RATIO  5
 
-#define STEERING_DELAY_MS       100
-#define THROTTLE_DELAY_MS       100
-
-#define LEFT_MIN_ANGLE          30
-#define RIGHT_MAX_ANGLE         150
-#define STARTUP_DELAY_MS        500
-#define STARTUP_SPEED           1700
-#define DRIFTANGLE              10
-#define NEUTRAL                 1500
-#define FORWARD_MAX             2000
-#define REVERSE_MAX             1000
-#define DELAYAFTERLEFT          640
-#define DELAYAFTERRIGHT         640
-#define CRUISESPEED             1750
-#define FASTSPEED               2000
-#define SLOWSPEED               1000
-
 #define TURN_RIGHT  0
 #define TURN_LEFT   1
-
-//enums for Directions
-#define STRAIGHT    1
-#define RIGHT1      5
-#define LEFT1       5
-#define BACKWARDS   4
 
 //Servo Defines for Steering
 #define STEER_LEFT      50
@@ -75,18 +52,6 @@ LEG / Distance / Direction to Turn / Obstacles on this leg
 
 //Number of straightaways/journeys
 #define COURSELEGS  9
-
-//Distance to go after each turn
-
-#define LEG1 36 //120
-#define LEG2 36 //45
-#define LEG3 48 //58
-#define LEG4 48 //53
-#define LEG5 66
-#define LEG6 8
-#define LEG7 28
-#define LEG8 8
-#define LEG9 5
 
 #define OBSTACLENONE    0
 #define OBSTACLEHOOP    1
