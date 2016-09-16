@@ -71,7 +71,7 @@ int setAngle(int currentAngle, int goal)
     errorAngle = 60;           // RIGHT Turn
   if (errorAngle < -60)
     errorAngle = -60;          // LEFT Turn
-
+/*
   Serial.print("CurrentANgle : "); 
   Serial.print(currentAngle); Serial.print(" ");
   Serial.print("TargetAngle : ");
@@ -80,7 +80,7 @@ int setAngle(int currentAngle, int goal)
   Serial.print(errorAngle); Serial.print(" ");
   Serial.print("DiatanceTraveled = ");
   Serial.println(g_distance_travelled);
-
+*/
   servoSteering.setAngle(STEER_STRAIGHT + errorAngle);
   myDelay(10);           //
 

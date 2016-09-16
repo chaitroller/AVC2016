@@ -20,8 +20,8 @@
 
 //Speeds for motor
 #define NEUTRAL 1500
-#define MAX_SPEED 1800
-#define TURN_SPEED 1650
+#define MAX_SPEED 1580
+#define TURN_SPEED 1570
 #define REVERSE_MAX 1000
 
 // Create an instance of compass
@@ -34,6 +34,8 @@ ESC_Throttle servoSteering;    //
 ESC_Throttle servoDrive;       //
 
 bool flag1 = true;
+int gDistance = 0;
+int gAngle = 0;
 
 // timeDelay account using milliSec for future use
 //==================================================
@@ -49,7 +51,7 @@ String fileName;
 //////////////////////////
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   Serial.println("Orientation Sensor Test"); Serial.println("");
 
@@ -72,6 +74,9 @@ void setup()
   bno.setExtCrystalUse(true);
 
   delay(500);
+
+  setupLidar();
+  
   /////////////////////////////////
 
   // Interrupt at Falling Edge to read the RPM Sensor
@@ -98,6 +103,8 @@ void setup()
   Serial.println(" 3. Set Speed and Steering Angle");
   servoSteering.setAngle(STEER_STRAIGHT); //(STEER_STRAIGHT);
   servoDrive.applyThrottle(MAX_SPEED);
+
+
 }
 
 //int MapAngle[] = {90, 90, 90, 90, 90, 45, 90, 45, 90, 45};
@@ -108,11 +115,11 @@ void setup()
 //  Distance: 148  55   68   63   77   118  10  30? 10? 15?
 //  Turn    : 90R  90R  90L  90R  90R  90R  90L 90L 90R FINISH
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#define LEG0  12*75 
-#define LEG1  12*20
-#define LEG2  12*75
-#define LEG3  12*20
-#define LEG4  12*10
+#define LEG0  12*5
+#define LEG1  12*5
+#define LEG2  12*5
+#define LEG3  12*5
+#define LEG4  12*5
 #define LEG5  12*10
 #define LEG6  12*10
 #define LEG7  12*10
@@ -122,12 +129,18 @@ int MapDistance[] = {LEG0, LEG1, LEG2, LEG3, LEG4, LEG5, LEG6, LEG7, LEG8};
 int MapTurnAngle[] = {90, 90, 90, 90, 90, 90, 90, 90};
 int MapDir[] = {TURN_RIGHT, TURN_RIGHT, TURN_RIGHT, TURN_RIGHT, TURN_RIGHT, TURN_RIGHT, TURN_LEFT, TURN_RIGHT, TURN_RIGHT};
 
-
+bool avoidObstacle = false;
 ////////////////////////////////////////////////////////////////////////
 // main program
 //
 ///////////////////////////////////////////////////////////////////////
 void loop() {
+
+  readLidar();
+  
+  //if(gAngle == 180)
+    Serial.println(gDistance);
+  //return;
 
   if (LEG_NO == 4) {
     servoDrive.applyThrottle(NEUTRAL);
@@ -140,7 +153,23 @@ void loop() {
     g_targetAngle = g_currentAngle;
     flag1 = false;
   }
+  
+  /*
+    if(distance180 < 10) {
+      int saved_g_targetAngle = g_targetAngle;
+      avoidObstacle = true;
+      if(distance135 >= 15) {
 
+        g_targetAngle += 30;           // Turn Right
+
+      } else if(distance225 >= 15) {
+
+        g_targetAngle -= 30;          // Turn Left
+
+      }
+
+    }
+  */
   ////////////////////////////////////
   // Take turn OR do course correction
   ////////////////////////////////////
@@ -154,7 +183,14 @@ void loop() {
 
     servoDrive.applyThrottle(MAX_SPEED);      // Resume normal/full speed
   }
-  
+  /*
+    if(avoidObstacle) {
+
+      g_targetAngle = saved_g_targetAngle;
+      avoidObstacle = false;
+
+    }
+  */
   //////////////////////////////////////////////////////
   // Check the distance travelled, Move to the next LEG
   //////////////////////////////////////////////////////
